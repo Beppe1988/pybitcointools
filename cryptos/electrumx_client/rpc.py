@@ -139,6 +139,8 @@ class ElectrumXClient(RPCClient):
             for u in unspent_for_addr:
                 u['address'] = addr
                 unspents.append(u)
-        return unspents
+            return unspents
 
+   
     
+  

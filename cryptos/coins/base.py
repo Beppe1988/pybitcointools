@@ -7,6 +7,7 @@ from ..keystore import *
 from ..wallet import *
 from ..py3specials import *
 from ..py2specials import *
+from ..services import *
 
 class BaseCoin(object):
     """
@@ -100,7 +101,12 @@ class BaseCoin(object):
         """
         Get unspent transactions for addresses
         """
-        return self.rpc_client.unspent(*addrs)
+        if self.is_testnet:
+            unspents = NetworkAPI.get_unspent_testnet(*addrs)
+        else:
+            unspents = NetworkAPI.get_unspent(*addrs)
+        return unspents
+        #Old -> return self.rpc_client.unspent(*addrs)
 
     def history(self, *addrs, **kwargs):
         """
