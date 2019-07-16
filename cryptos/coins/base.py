@@ -2,12 +2,13 @@ from ..transaction import *
 from ..blocks import mk_merkle_proof
 from .. import segwit_addr
 from ..explorers import blockchain
+from ..explorers import bitpay_testnet
 from ..electrumx_client.rpc import ElectrumXClient
 from ..keystore import *
 from ..wallet import *
 from ..py3specials import *
 from ..py2specials import *
-from ..services import *
+
 
 class BaseCoin(object):
     """
@@ -23,6 +24,7 @@ class BaseCoin(object):
     script_magicbyte = None
     segwit_hrp = None
     explorer = blockchain
+    explorer_testnet = bitpay_testnet
     client = ElectrumXClient
     client_kwargs = {
         'server_file': 'bitcoin.json',
@@ -102,10 +104,9 @@ class BaseCoin(object):
         Get unspent transactions for addresses
         """
         if self.is_testnet:
-            unspents = NetworkAPI.get_unspent_testnet(*addrs)
+            return self.explorer_testnet.unspent(*addrs)
         else:
-            unspents = NetworkAPI.get_unspent(*addrs)
-        return unspents
+            return self.explorer.unspent(*addrs, coin_symbol=self.coin_symbol)
         #Old -> return self.rpc_client.unspent(*addrs)
 
     def history(self, *addrs, **kwargs):
@@ -130,7 +131,10 @@ class BaseCoin(object):
         """
         Push/ Broadcast a transaction to the blockchain
         """
-        return self.explorer.pushtx(tx, coin_symbol=self.coin_symbol)
+        if self.is_testnet:
+            return self.explorer_testnet.pushtx('testnet', tx)
+        else:
+            return self.explorer.pushtx(tx, coin_symbol=self.coin_symbol)
 
     def privtopub(self, privkey):
         """

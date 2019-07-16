@@ -7,7 +7,7 @@ def get_url(coin_symbol):
     if coin_symbol == "BTC":
         return "https://blockchain.info"
     return "https://testnet.blockchain.info"
-
+          
 sendtx_url = "%s/pushtx"
 address_url = "%s/address/%s?format=json"
 utxo_url = "%s/unspent?active=%s&limit=1000&format=json"

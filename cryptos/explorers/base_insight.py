@@ -62,6 +62,7 @@ def pushtx(base_url, network, tx):
                     'network': network
                     }
                 }
+    
     return response
 
 # Gets the transaction output history of a given set of addresses,
