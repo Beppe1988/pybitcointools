@@ -36,6 +36,7 @@ class RPCClient(JSONSession):
         self.items_events[id_].clear()
         del self.items_events[id_]
         return self.result.pop(id_)
+        
 
     def send_rpc_request(self, method, params):
         handler = partial(self.handle_response, method, params)
@@ -69,8 +70,8 @@ class ElectrumXClient(RPCClient):
             self.servers = servers
         else:
             self.servers = read_json(server_file, {})
-        self.host = host
-        self.port = port
+        self.host = '127.0.0.1'
+        self.port = 28332
         self.rpc_client = None
         if not self.host:
             self.host, self.port = self.choose_random_server()
@@ -91,6 +92,8 @@ class ElectrumXClient(RPCClient):
             transport, self.rpc_client = self.loop.run_until_complete(coro)
         except OSError:
             self.change_server()
+            print('error')
+            
 
     def change_server(self):
         if self.rpc_client:
@@ -140,6 +143,7 @@ class ElectrumXClient(RPCClient):
                 u['address'] = addr
                 unspents.append(u)
             return unspents
+
 
    
     
