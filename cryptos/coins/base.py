@@ -1,8 +1,7 @@
 from ..transaction import *
 from ..blocks import mk_merkle_proof
 from .. import segwit_addr
-from ..explorers import blockchain
-from ..explorers import bitpay_testnet
+from ..explorers import blockchair
 from ..electrumx_client.rpc import ElectrumXClient
 from ..keystore import *
 from ..wallet import *
@@ -23,8 +22,7 @@ class BaseCoin(object):
     magicbyte = None
     script_magicbyte = None
     segwit_hrp = None
-    explorer = blockchain
-    explorer_testnet = bitpay_testnet
+    explorer = blockchair
     client = ElectrumXClient
     client_kwargs = {
         'server_file': 'bitcoin.json',
@@ -98,16 +96,18 @@ class BaseCoin(object):
             self._rpc_client = self.client(**self.client_kwargs)
         return self._rpc_client
 
+    def balance(self, *addrs):
+        """
+        Get balance for addresses
+        """
+        return self.explorer.balance(*addrs, coin_symbol=self.coin_symbol)
 
     def unspent(self, *addrs):
         """
         Get unspent transactions for addresses
         """
-        if self.is_testnet:
-            return self.explorer_testnet.unspent(*addrs)
-        else:
-            return self.explorer.unspent(*addrs, coin_symbol=self.coin_symbol)
-        #Old -> return self.rpc_client.unspent(*addrs)
+        return self.explorer.unspent(*addrs, coin_symbol=self.coin_symbol)
+
 
     def history(self, *addrs, **kwargs):
         """
@@ -131,10 +131,7 @@ class BaseCoin(object):
         """
         Push/ Broadcast a transaction to the blockchain
         """
-        if self.is_testnet:
-            return self.explorer_testnet.pushtx('testnet', tx)
-        else:
-            return self.explorer.pushtx(tx, coin_symbol=self.coin_symbol)
+        return self.explorer.pushtx(tx, coin_symbol=self.coin_symbol)
 
     def privtopub(self, privkey):
         """
@@ -385,7 +382,7 @@ class BaseCoin(object):
             txobj["outs"].append(outobj)
         return txobj
 
-    def mksend(self, *args, segwit=False):
+    def mksend(self, *args, new_segwit=False, segwit=False):
         """[in0, in1...],[out0, out1...] or in0, in1 ... out0 out1 ...
 
         Make an unsigned transaction from inputs, outputs change address and fee. A change output will be added with
@@ -408,6 +405,9 @@ class BaseCoin(object):
             if segwit:
                 for i in ins:
                     i['segwit'] = True
+            if new_segwit:
+                for i in ins:
+                    i['new_segwit'] = True
         isum = sum([i["value"] for i in ins])
         osum, outputs2 = 0, []
         for o in outs:
@@ -425,7 +425,20 @@ class BaseCoin(object):
             raise Exception("Not enough money")
         elif isum > osum + fee + 5430:
             outputs2 += [{"address": change, "value": isum - osum - fee}]
+            # TODO Divide change for ins and return it to ins addresses:
 
+            '''
+            addli = []
+            for n in ins:
+                tx = self.fetchtx(n["output"][-2])
+                for elem in tx:
+                    if not elem['is_spent']:
+                        add = elem['recipient']
+                        addli.append(add)
+            chpart = (isum - osum - fee) / len(addli)
+            for addr in addli:
+                outputs2 += [{"address": addr, "value": float(chpart)}]
+            '''
         return self.mktx(ins, outputs2)
 
     def preparesignedtx(self, privkey, to, value, fee=10000, change_addr=None, segwit=False, addr=None):

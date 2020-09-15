@@ -1,8 +1,15 @@
-REPOSITORY HAS BEEN ARCHIVED AND IS NO LONGER MAINTAINED FOR NOW
-
 # Pycryptotools, Python library for Crypto coins signatures and transactions
 
-This is a fork of Vitalik Buterin's original [pybitcointools](https://github.com/vbuterin/pybitcointools) library.
+This is a fork of Primal100 [pybitcointools](https://github.com/primal100/pybitcointools) library.
+
+Notes on this fork:
+
+This library now support some new features:
+* Push transactions by explorer
+* Added blockchair explorer
+* Support segwit addresses
+* Some functions was upgraded
+
 
 Installation:
 

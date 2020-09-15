@@ -3,18 +3,58 @@ import requests
 from cryptos_f.transaction import public_txhash
 from .utils import parse_addr_args
 
+# Documentation: https://blockchair.com/api/docs
+
 def get_url(coin_symbol):
     if coin_symbol == "BTC":
-        return "https://blockchain.info"
-    return "https://testnet.blockchain.info"
+        return "https://api.blockchair.com/bitcoin"
+    return "https://api.blockchair.com/bitcoin/testnet"
           
-sendtx_url = "%s/pushtx"
-address_url = "%s/address/%s?format=json"
-utxo_url = "%s/unspent?active=%s&limit=1000&format=json"
-fetchtx_url = "%s/rawtx/%s?format=json"
-block_height_url = "%s/block-height/%s?format=json"
-latest_block_url = "%s/latestblock"
-block_info_url = "%s/rawblock/%s"
+sendtx_url = "%s/push/transaction"
+address_url = "%s/dashboards/address/%s"
+utxo_url = "%s/dashboards/address/%s?limit=1000"
+utxom_url = "%s/dashboards/addresses/%s?limit=1000"
+fetchtx_url = "%s/dashboards/transaction/%s"
+block_height_url = "%s/raw/block/%s"
+latest_block_url = "%s/stats"
+block_info_url = "%s/raw/block/%s"
+
+
+def balance(*args, coin_symbol="BTC"):
+    addrs = parse_addr_args(*args)
+    if len(addrs) == 0:
+        return []
+
+    base_url = get_url(coin_symbol)
+
+    if len(addrs) == 1:
+        url = utxo_url % (base_url, addrs[0])
+    else:
+        url = utxom_url % (base_url, ','.join(addrs))
+
+    response = requests.get(url)
+    balances = []
+    try:
+        outputs = response.json()['data']
+
+        if len(addrs) == 1:
+            for i in outputs:
+                balances.append(outputs[i]['address']['balance'])
+        else:
+            for i in outputs['addresses']:
+                balances.append(outputs['addresses'][i]['balance'])
+
+        if len(balances) == 1:
+            return balances[0]
+        else:
+            tot = 0
+            for b in balances:
+                tot = tot + b
+            return tot
+
+    except (ValueError, KeyError):
+        raise Exception("Unable to decode JSON from result: %s" % response.text)
+
 
 def unspent(*args, coin_symbol="BTC"):
 
@@ -24,20 +64,32 @@ def unspent(*args, coin_symbol="BTC"):
         return []
 
     base_url = get_url(coin_symbol)
-    url = utxo_url % (base_url, '|'.join(addrs))
+
+    if len(addrs) == 1:
+        url = utxo_url % (base_url, addrs[0])
+    else:
+        url = utxom_url % (base_url, ','.join(addrs))
+
     response = requests.get(url)
-    if response.text == "No free outputs to spend":
-        return []
+
     try:
-        outputs = response.json()['unspent_outputs']
-        for i, o in enumerate(outputs):
-            outputs[i] = {
-                        "output": o['tx_hash_big_endian']+':'+str(o['tx_output_n']),
-                        "value": o['value']
-                    }
-        return outputs
+
+        outputs = response.json()['data']
+        outs = []
+
+        for i in outputs:
+            d = {}
+            for j in outputs[i]['utxo']:
+                d = {
+                    "output": j['transaction_hash']+':'+str(j['index']),
+                    "value": j['value']
+                }
+                if d != {}:
+                    outs.append(d)
+        return outs
     except (ValueError, KeyError):
         raise Exception("Unable to decode JSON from result: %s" % response.text)
+
 
 def fetchtx(txhash, coin_symbol="BTC"):
     base_url = get_url(coin_symbol)
@@ -46,7 +98,8 @@ def fetchtx(txhash, coin_symbol="BTC"):
     try:
         return response.json()
     except ValueError:
-        raise Exception("Unable to decode JSON from result: %s" % response.text)
+        raise Exception("Unable to decode JSON in %s from result: %s" % (url, response.text))
+
 
 def tx_hash_from_index(index, coin_symbol="BTC"):
     result = fetchtx(index, coin_symbol=coin_symbol)
@@ -60,6 +113,7 @@ def txinputs(txhash, coin_symbol="BTC"):
                  'value': i["prev_out"]['value']} for i in inputs]
     return unspents
 
+
 def pushtx(tx, coin_symbol="BTC"):
     if not re.match('^[0-9a-fA-F]*$', tx):
         tx = tx.encode('hex')
@@ -67,7 +121,8 @@ def pushtx(tx, coin_symbol="BTC"):
     base_url = get_url(coin_symbol)
     url = sendtx_url % base_url
     hash = public_txhash(tx)
-    response = requests.post(url, {'tx': tx})
+
+    response = requests.post(url, {'data': tx})
     if response.status_code == 200:
         return {'status': 'success',
                 'data': {
@@ -94,8 +149,8 @@ def history(*args, coin_symbol="BTC"):
     return response.json()
 
 def block_height(txhash, coin_symbol="BTC"):
-    tx = fetchtx(txhash,coin_symbol=coin_symbol)
-    return tx['block_height']
+    tx = fetchtx(txhash, coin_symbol=coin_symbol)
+    return tx['data'][txhash]['transaction']['block_id']
 
 def block_info(height, coin_symbol="BTC"):
     base_url = get_url(coin_symbol)
@@ -118,4 +173,4 @@ def current_block_height(coin_symbol="BTC"):
     base_url = get_url(coin_symbol)
     url = latest_block_url % base_url
     response = requests.get(url)
-    return response.json()["height"]
+    return response.json()["data"]["best_block_height"]

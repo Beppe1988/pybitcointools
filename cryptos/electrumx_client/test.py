@@ -1,4 +1,4 @@
-from cryptos.electrumx_client import rpc_send_and_wait, rpc_send
+from cryptos_f.electrumx_client import rpc_send_and_wait, rpc_send
 
 host = "electrum.akinbo.org"
 port = 50001
